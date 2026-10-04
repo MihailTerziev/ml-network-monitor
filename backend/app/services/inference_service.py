@@ -1,6 +1,7 @@
 from typing import Any, Dict
 
 import numpy as np
+from fastapi import HTTPException
 from tensorflow import keras
 
 from app.config import get_settings
@@ -14,7 +15,10 @@ def convert_payload_to_bits(hex_payload: str, number_of_bytes: int = 128):
     hex_chars_count = number_of_bytes * 2
     payload_fragment = hex_payload[:hex_chars_count]
     payload_fragment = payload_fragment.ljust(hex_chars_count, "0")
-    bytes_sequence = bytes.fromhex(payload_fragment)
+    try:
+        bytes_sequence = bytes.fromhex(payload_fragment)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"payload_hex is not valid hexadecimal: {exc}")
     bytes_array = np.frombuffer(bytes_sequence, dtype=np.uint8)
     bits_array = np.unpackbits(bytes_array).astype(np.float32)
     return bits_array

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.monitoring_session import MonitoringSession
+from app.models.detection_result import DetectionResult
 from app.models.packet import CapturedPacket
 from app.schemas.monitoring import MonitoringSessionCreate, MonitoringSessionOut, MonitoringSessionUpdate
 from app.services.packet_pipeline import create_packet_and_score
@@ -66,6 +68,35 @@ def list_packets(db: Session = Depends(get_db), current_user=Depends(get_current
         }
         for packet in packets
     ]
+
+
+@router.get("/results/{packet_id}")
+def get_packet_result(packet_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    try:
+        packet_uuid = uuid.UUID(packet_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="packet_id must be a valid UUID")
+    row = (
+        db.query(CapturedPacket, DetectionResult)
+        .join(DetectionResult, DetectionResult.packet_id == CapturedPacket.id)
+        .join(MonitoringSession, MonitoringSession.id == CapturedPacket.session_id)
+        .filter(CapturedPacket.id == packet_uuid, MonitoringSession.user_id == current_user.id)
+        .order_by(DetectionResult.checked_at.desc())
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Result not found")
+    packet, result = row
+    return {
+        "packet_id": str(packet.id),
+        "result_id": str(result.id),
+        "anomaly_score": result.anomaly_score,
+        "threshold": result.threshold_value,
+        "model_version": result.model_version,
+        "is_anomalous": result.is_anomalous,
+        "verdict": "anomalous" if result.is_anomalous else "normal",
+        "checked_at": result.checked_at.isoformat() if result.checked_at else None,
+    }
 
 
 @router.get("/packets/{packet_id}")
