@@ -1,6 +1,7 @@
+from typing import Any, Dict
+
 import numpy as np
 from tensorflow import keras
-from typing import Dict, Any
 
 from app.config import get_settings
 

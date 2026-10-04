@@ -5,8 +5,9 @@ from app.models.model_version import ModelVersion
 
 
 def start_training_job(db: Session, user_id: str):
+    version = f"v{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
     model_version = ModelVersion(
-        version="v0.1.0",
+        version=version,
         file_path="models/active_model.keras",
         status="training",
         trained_on_samples=0,
@@ -17,4 +18,8 @@ def start_training_job(db: Session, user_id: str):
     db.add(model_version)
     db.commit()
     db.refresh(model_version)
-    return {"job_id": str(model_version.id), "status": "pending"}
+    return {
+        "job_id": str(model_version.id),
+        "model_version": version,
+        "status": "pending",
+    }

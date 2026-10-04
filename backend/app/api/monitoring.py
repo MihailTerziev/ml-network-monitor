@@ -1,13 +1,12 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import CapturedPacket, DetectionResult, MonitoringSession
+from app.models.monitoring_session import MonitoringSession
 from app.schemas.monitoring import MonitoringSessionCreate, MonitoringSessionOut, MonitoringSessionUpdate
-from app.services.packet_ingest import ingest_packet
 
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
@@ -41,20 +40,12 @@ def create_session(
 
 
 @router.get("/sessions", response_model=List[MonitoringSessionOut])
-def list_sessions(
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    sessions = db.query(MonitoringSession).filter(MonitoringSession.user_id == current_user.id).all()
-    return sessions
+def list_sessions(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    return db.query(MonitoringSession).filter(MonitoringSession.user_id == current_user.id).all()
 
 
 @router.post("/sessions/{session_id}/start")
-def start_session(
-    session_id: str,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
+def start_session(session_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
     if not session or session.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -64,11 +55,7 @@ def start_session(
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(
-    session_id: str,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
+def stop_session(session_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
     if not session or session.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -96,26 +83,3 @@ def update_session(
     db.commit()
     db.refresh(session)
     return session
-
-
-@router.post("/sessions/{session_id}/ingest")
-def manual_ingest_packet(
-    session_id: str,
-    payload: dict,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
-    if not session or session.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Session not found")
-    packet = ingest_packet(
-        db=db,
-        session_id=session_id,
-        src_ip=payload.get("src_ip"),
-        dst_ip=payload.get("dst_ip"),
-        src_port=payload.get("src_port"),
-        dst_port=payload.get("dst_port"),
-        protocol=payload.get("protocol", "tcp"),
-        payload_hex=payload.get("payload_hex", ""),
-    )
-    return {"packet_id": str(packet.id), "status": "saved"}

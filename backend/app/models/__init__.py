@@ -1,4 +1,9 @@
-# ML Network Monitor
+from .user import User
+from .monitoring_session import MonitoringSession
+from .packet import CapturedPacket
+from .detection_result import DetectionResult
+from .model_version import ModelVersion
+from .training_job import TrainingJob
 
 __all__ = [
     "User",
@@ -8,10 +13,3 @@ __all__ = [
     "ModelVersion",
     "TrainingJob",
 ]
-
-from app.models.user import User
-from app.models.monitoring_session import MonitoringSession
-from app.models.packet import CapturedPacket
-from app.models.detection_result import DetectionResult
-from app.models.model_version import ModelVersion
-from app.models.training_job import TrainingJob

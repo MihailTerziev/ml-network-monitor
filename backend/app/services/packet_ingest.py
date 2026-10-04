@@ -1,7 +1,7 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Session
+from typing import Optional
 from datetime import datetime
-from uuid import uuid4
+
+from sqlalchemy.orm import Session
 
 from app.models.packet import CapturedPacket
 
@@ -9,11 +9,11 @@ from app.models.packet import CapturedPacket
 def ingest_packet(
     db: Session,
     session_id: str,
-    src_ip: str | None,
-    dst_ip: str | None,
-    src_port: int | None,
-    dst_port: int | None,
-    protocol: str | None,
+    src_ip: Optional[str],
+    dst_ip: Optional[str],
+    src_port: Optional[int],
+    dst_port: Optional[int],
+    protocol: Optional[str],
     payload_hex: str,
 ):
     packet = CapturedPacket(
