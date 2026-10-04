@@ -9,7 +9,7 @@ from app.config import get_settings
 settings = get_settings()
 
 
-def convert_payload_to_bits(hex_payload: str, number_of_bytes: int = 128):
+def convert_payload_to_bits(hex_payload: str, number_of_bytes: int = 64):
     if not hex_payload:
         hex_payload = "00" * number_of_bytes
     hex_chars_count = number_of_bytes * 2
