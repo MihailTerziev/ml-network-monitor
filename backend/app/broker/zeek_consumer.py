@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import socket
 from threading import Thread
@@ -5,7 +7,12 @@ from typing import Any, Callable, Dict, Optional
 
 
 class ZeekSocketConsumer:
-    def __init__(self, host: str = "127.0.0.1", port: int = 9999, on_message: Optional[Callable[[Dict[str, Any]], None]] = None):
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 9999,
+        on_message: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ):
         self.host = host
         self.port = port
         self.on_message = on_message
@@ -13,17 +20,17 @@ class ZeekSocketConsumer:
         self.thread: Optional[Thread] = None
         self.running = False
 
-    def start(self):
+    def start(self) -> None:
         self.running = True
         self.thread = Thread(target=self._run, daemon=True)
         self.thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self.running = False
         if self.server_socket:
             self.server_socket.close()
 
-    def _run(self):
+    def _run(self) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind((self.host, self.port))

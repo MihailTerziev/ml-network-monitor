@@ -1,35 +1,50 @@
-from datetime import datetime
-from typing import Any, Dict, Optional
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.models.monitoring_session import MonitoringSession
 from app.models.packet import CapturedPacket
-from app.models.detection_result import DetectionResult
-from app.services.detection_service import score_and_save_packet
+from app.schemas.monitoring import MonitoringSessionCreate, MonitoringSessionOut, MonitoringSessionUpdate
+from app.services.packet_pipeline import create_packet_and_score
 
 router = APIRouter(prefix="/api", tags=["packets"])
 
 
-@router.post("/packets/{packet_id}/score")
-def score_packet(
-    packet_id: str,
+@router.post("/packets/ingest")
+def ingest_packet_payload(
+    payload: Dict[str, Any],
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    try:
-        result = score_and_save_packet(db, packet_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    return {
-        "packet_id": packet_id,
-        "status": "scored",
-        "result_id": str(result.id),
-        "is_anomalous": result.is_anomalous,
-        "model_version": result.model_version,
-    }
+    session_id = payload.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+
+    session = db.query(MonitoringSession).filter(MonitoringSession.id == str(session_id)).first()
+    if not session or session.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    packet_hex = payload.get("payload_hex") or payload.get("payload")
+    if not packet_hex:
+        raise HTTPException(status_code=400, detail="payload_hex is required")
+
+    result = create_packet_and_score(
+        db=db,
+        session_id=str(session_id),
+        payload_hex=str(packet_hex),
+        src_ip=payload.get("src_ip"),
+        dst_ip=payload.get("dst_ip"),
+        src_port=payload.get("src_port"),
+        dst_port=payload.get("dst_port"),
+        protocol=payload.get("protocol", "tcp"),
+    )
+
+    return {"status": "processed", **result}
 
 
 @router.get("/packets")
@@ -71,22 +86,3 @@ def get_packet(packet_id: str, db: Session = Depends(get_db), current_user=Depen
         "captured_at": packet.captured_at.isoformat() if packet.captured_at else None,
         "is_processed": packet.is_processed,
     }
-
-
-@router.get("/detections")
-def list_detections(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    results = db.query(DetectionResult).order_by(DetectionResult.checked_at.desc()).all()
-    return [
-        {
-            "id": str(result.id),
-            "packet_id": str(result.packet_id),
-            "model_version": result.model_version,
-            "model_path": result.model_path,
-            "threshold_value": result.threshold_value,
-            "anomaly_score": result.anomaly_score,
-            "is_anomalous": result.is_anomalous,
-            "inference_time_ms": result.inference_time_ms,
-            "checked_at": result.checked_at.isoformat() if result.checked_at else None,
-        }
-        for result in results
-    ]
