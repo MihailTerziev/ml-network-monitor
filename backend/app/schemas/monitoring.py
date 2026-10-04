@@ -1,19 +1,19 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MonitoringSessionCreate(BaseModel):
-    name: str
-    interface: str
-    packet_capture_limit_bytes: int = 128
+    name: str = Field(min_length=1, max_length=100)
+    interface: str = Field(min_length=1, max_length=100)
+    packet_capture_limit_bytes: int = Field(default=64, ge=1, le=64)
 
 
 class MonitoringSessionUpdate(BaseModel):
     name: Optional[str] = None
     interface: Optional[str] = None
-    packet_capture_limit_bytes: Optional[int] = None
+    packet_capture_limit_bytes: Optional[int] = Field(default=None, ge=1, le=64)
 
 
 class MonitoringSessionOut(BaseModel):
@@ -24,5 +24,4 @@ class MonitoringSessionOut(BaseModel):
     packet_capture_limit_bytes: int
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

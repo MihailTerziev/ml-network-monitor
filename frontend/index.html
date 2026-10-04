@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0b1424">
+    <title>ML Network Monitor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="ML Network Monitor home">
+          <span class="brand-mark">N</span>
+          <span>Network<span class="brand-muted">Monitor</span></span>
+        </a>
+        <div id="user-tools" class="user-tools" hidden>
+          <span id="user-email"></span>
+          <button id="logout" class="button button-quiet" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <section id="auth-panel" class="auth-layout">
+        <div class="intro">
+          <p class="eyebrow">NETWORK ANOMALY DETECTION</p>
+          <h1>Visibility into<br><span>every packet.</span></h1>
+          <p class="intro-copy">Monitor TCP traffic, score payloads with your autoencoder, and review detections in one place.</p>
+          <div class="status-note"><span class="status-dot"></span> Local-first monitoring workspace</div>
+        </div>
+        <form id="auth-form" class="panel auth-card">
+          <div class="tabs">
+            <button class="tab active" data-mode="login" type="button">Sign in</button>
+            <button class="tab" data-mode="register" type="button">Create account</button>
+          </div>
+          <h2 id="auth-title">Welcome back</h2>
+          <p id="auth-description" class="muted">Sign in to continue to your monitor.</p>
+          <label>Email address<input id="email" name="email" type="email" autocomplete="email" required></label>
+          <label>Password<input id="password" name="password" type="password" autocomplete="current-password" minlength="6" required></label>
+          <button id="auth-submit" class="button button-primary button-wide" type="submit">Sign in</button>
+          <p id="auth-error" class="form-error" role="alert"></p>
+          <p class="fine-print">Accounts are local to this installation. Email verification is not configured.</p>
+        </form>
+      </section>
+
+      <section id="dashboard" hidden>
+        <div class="page-heading">
+          <div><p class="eyebrow">MONITORING OVERVIEW</p><h1>Good to see you.</h1><p class="muted">Your traffic signals, model health, and monitoring sessions.</p></div>
+          <button id="refresh" class="button button-quiet" type="button">Refresh data</button>
+        </div>
+        <div class="stats-grid">
+          <article class="panel stat"><span>Total packets</span><strong id="stat-packets">0</strong><small>Stored and scored</small></article>
+          <article class="panel stat"><span>Anomalies</span><strong id="stat-anomalies" class="danger-text">0</strong><small>Above active threshold</small></article>
+          <article class="panel stat"><span>Benign</span><strong id="stat-benign" class="success-text">0</strong><small>Below active threshold</small></article>
+          <article class="panel stat"><span>Active sessions</span><strong id="stat-sessions">0</strong><small>Monitoring configurations</small></article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel section-card">
+            <div class="section-title"><div><p class="eyebrow">CAPTURE CONTROL</p><h2>Monitoring sessions</h2></div><span id="session-count" class="pill">0 sessions</span></div>
+            <form id="session-form" class="session-form">
+              <label>Session name<input id="session-name" maxlength="100" placeholder="Office network" required></label>
+              <label>Interface<select id="interface" required><option value="">Loading interfaces…</option></select></label>
+              <label>Bytes per packet<input id="capture-bytes" type="number" min="1" max="64" value="64" required></label>
+              <button class="button button-primary" type="submit">Add session</button>
+            </form>
+            <div id="sessions" class="session-list"></div>
+            <p class="hint">Start changes session state and accepts packets from the authenticated API or configured Zeek bridge. It does not start Zeek on this machine by itself.</p>
+          </section>
+
+          <section class="panel section-card model-card">
+            <div class="section-title"><div><p class="eyebrow">MODEL OPERATIONS</p><h2>Active model</h2></div><span id="model-status" class="pill">Loading</span></div>
+            <div id="models" class="model-list"></div>
+            <div class="training-box">
+              <div><strong>Retrain on reviewed traffic</strong><p class="hint">Only packets explicitly labeled “Normal” are used. Review your data first.</p></div>
+              <button id="train-model" class="button button-primary" type="button">Start training</button>
+            </div>
+            <div id="training-status" class="hint"></div>
+          </section>
+        </div>
+
+        <section class="panel section-card packet-section">
+          <div class="section-title packet-heading"><div><p class="eyebrow">LIVE TELEMETRY</p><h2>Recent packet detections</h2></div><div class="heading-actions"><select id="packet-session"><option value="">Choose session for live updates</option></select><span class="live-indicator"><i></i> Live</span></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Time</th><th>Source → destination</th><th>Protocol</th><th>Size</th><th>Score / threshold</th><th>Verdict</th><th>Training label</th></tr></thead>
+              <tbody id="packets"><tr><td colspan="7" class="empty">No packets yet. Start a session, then send or forward a packet.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+        <div id="toast" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

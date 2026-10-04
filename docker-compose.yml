@@ -1,38 +1,44 @@
-version: '3.9'
-
 services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ml_network_monitor
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      POSTGRES_DB: ${POSTGRES_DB:-ml_network_monitor}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ml_network_monitor}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ml_network_monitor
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: change-me-in-production-super-secret-key
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-local-dev-only}@postgres:5432/${POSTGRES_DB:-ml_network_monitor}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env before starting Compose}
+      MODEL_PATH: ./models/tls_64byte_dropout_autoencoder.keras
+      DEFAULT_THRESHOLD: ${DEFAULT_THRESHOLD:-0.18}
+      MODEL_DIR: ./models
+      ZEEK_HOST: 0.0.0.0
+      ZEEK_PORT: 9999
+      ZEEK_SHARED_TOKEN: ${ZEEK_SHARED_TOKEN:-}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:9999:9999"
     volumes:
-      - ./backend:/app
+      - ./backend:/workspace/backend
+      - ./frontend:/workspace/frontend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
 
 volumes:
   postgres_data:

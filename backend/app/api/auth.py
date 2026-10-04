@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from sqlalchemy.exc import IntegrityError
 
 from app.database import get_db
 from app.deps import get_current_user
@@ -24,7 +24,11 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
         is_active=True,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered") from exc
     db.refresh(user)
     return user
 
@@ -35,7 +39,7 @@ def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = D
     if not user:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
-    access_token = create_access_token({"sub": str(user.id)}, timedelta(days=1))
+    access_token = create_access_token({"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
 

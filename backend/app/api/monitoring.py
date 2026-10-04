@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
-
+from typing import List
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -15,11 +15,9 @@ router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
 @router.get("/interfaces")
 def list_interfaces():
-    try:
-        import psutil
-        return {"interfaces": list(psutil.net_if_addrs().keys())}
-    except Exception:
-        return {"interfaces": ["eth0", "lo", "wlp2s0", "en0"]}
+    import psutil
+
+    return {"interfaces": sorted(psutil.net_if_addrs().keys())}
 
 
 @router.post("/sessions", response_model=MonitoringSessionOut)
@@ -28,6 +26,8 @@ def create_session(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    if payload.interface not in list_interfaces()["interfaces"]:
+        raise HTTPException(status_code=422, detail="Unknown network interface")
     session = MonitoringSession(
         user_id=current_user.id,
         name=payload.name,
@@ -47,19 +47,29 @@ def list_sessions(db: Session = Depends(get_db), current_user=Depends(get_curren
 
 
 @router.post("/sessions/{session_id}/start")
-def start_session(session_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
-    if not session or session.user_id != current_user.id:
+def start_session(session_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    session = (
+        db.query(MonitoringSession)
+        .filter(MonitoringSession.id == session_id, MonitoringSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.interface not in list_interfaces()["interfaces"]:
+        raise HTTPException(status_code=422, detail="The configured interface is no longer available")
     session.status = "running"
     db.commit()
     return {"status": "running", "session_id": session_id}
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(session_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
-    if not session or session.user_id != current_user.id:
+def stop_session(session_id: UUID, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    session = (
+        db.query(MonitoringSession)
+        .filter(MonitoringSession.id == session_id, MonitoringSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     session.status = "stopped"
     db.commit()
@@ -68,17 +78,23 @@ def stop_session(session_id: str, db: Session = Depends(get_db), current_user=De
 
 @router.put("/sessions/{session_id}", response_model=MonitoringSessionOut)
 def update_session(
-    session_id: str,
+    session_id: UUID,
     payload: MonitoringSessionUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    session = db.query(MonitoringSession).filter(MonitoringSession.id == session_id).first()
-    if not session or session.user_id != current_user.id:
+    session = (
+        db.query(MonitoringSession)
+        .filter(MonitoringSession.id == session_id, MonitoringSession.user_id == current_user.id)
+        .first()
+    )
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     if payload.name is not None:
         session.name = payload.name
     if payload.interface is not None:
+        if payload.interface not in list_interfaces()["interfaces"]:
+            raise HTTPException(status_code=422, detail="Unknown network interface")
         session.interface = payload.interface
     if payload.packet_capture_limit_bytes is not None:
         session.packet_capture_limit_bytes = payload.packet_capture_limit_bytes

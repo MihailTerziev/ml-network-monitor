@@ -3,3 +3,7 @@ __pycache__/
 venv/
 .venv/
 .env
+.pytest_cache/
+backend/models/u*.keras
+backend/models/.u*.tmp.keras
+backend/training_data/

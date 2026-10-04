@@ -1,5 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
+from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,9 +16,17 @@ def get_current_user(
 ) -> User:
     from app.services.auth_service import decode_access_token
 
-    payload = decode_access_token(token)
-    user_id = payload.get("sub")
-    if user_id is None:
+    try:
+        payload = decode_access_token(token)
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    try:
+        user_id = UUID(payload["sub"])
+    except (KeyError, ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -24,7 +34,7 @@ def get_current_user(
         )
 
     user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
+    if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",

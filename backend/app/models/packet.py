@@ -20,6 +20,7 @@ class CapturedPacket(Base):
     packet_size = Column(Integer, nullable=True)
     payload_hex = Column(String, nullable=False)
     payload_bits_json = Column(String, nullable=True)
+    training_label = Column(String, nullable=True)
     captured_at = Column(DateTime, default=datetime.utcnow)
     processed_at = Column(DateTime, nullable=True)
     is_processed = Column(Boolean, default=False)

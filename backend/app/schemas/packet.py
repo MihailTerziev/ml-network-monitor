@@ -1,17 +1,21 @@
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PacketIn(BaseModel):
     session_id: UUID
-    src_ip: Optional[str] = None
-    dst_ip: Optional[str] = None
-    src_port: Optional[int] = None
-    dst_port: Optional[int] = None
-    protocol: Optional[str] = "tcp"
-    payload_hex: str
+    src_ip: Optional[str] = Field(default=None, max_length=45)
+    dst_ip: Optional[str] = Field(default=None, max_length=45)
+    src_port: Optional[int] = Field(default=None, ge=0, le=65535)
+    dst_port: Optional[int] = Field(default=None, ge=0, le=65535)
+    protocol: Optional[str] = Field(default="tcp", max_length=32)
+    payload_hex: str = Field(min_length=2, max_length=131070)
+
+
+class PacketLabelIn(BaseModel):
+    training_label: Optional[str] = Field(default=None, pattern="^(normal|anomalous|ignore)$")
 
 
 class PacketOut(BaseModel):
@@ -26,8 +30,7 @@ class PacketOut(BaseModel):
     payload_hex: str
     captured_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DetectionResultOut(BaseModel):
@@ -41,5 +44,4 @@ class DetectionResultOut(BaseModel):
     inference_time_ms: Optional[float]
     checked_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
