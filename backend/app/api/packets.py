@@ -1,12 +1,13 @@
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models.detection_result import DetectionResult
 from app.models.packet import CapturedPacket
+from app.models.detection_result import DetectionResult
 from app.services.detection_service import score_and_save_packet
 
 router = APIRouter(prefix="/api", tags=["packets"])
@@ -22,10 +23,16 @@ def score_packet(
         result = score_and_save_packet(db, packet_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    return {"packet_id": packet_id, "status": "scored", "result_id": str(result.id), "is_anomalous": result.is_anomalous}
+    return {
+        "packet_id": packet_id,
+        "status": "scored",
+        "result_id": str(result.id),
+        "is_anomalous": result.is_anomalous,
+        "model_version": result.model_version,
+    }
 
 
-@router.get("/packets", response_model=List[dict])
+@router.get("/packets")
 def list_packets(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     packets = db.query(CapturedPacket).order_by(CapturedPacket.captured_at.desc()).all()
     return [
@@ -39,14 +46,14 @@ def list_packets(db: Session = Depends(get_db), current_user=Depends(get_current
             "protocol": packet.protocol,
             "packet_size": packet.packet_size,
             "payload_hex": packet.payload_hex,
-            "captured_at": packet.captured_at.isoformat(),
+            "captured_at": packet.captured_at.isoformat() if packet.captured_at else None,
             "is_processed": packet.is_processed,
         }
         for packet in packets
     ]
 
 
-@router.get("/captures/{packet_id}")
+@router.get("/packets/{packet_id}")
 def get_packet(packet_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     packet = db.query(CapturedPacket).filter(CapturedPacket.id == packet_id).first()
     if not packet:
@@ -61,12 +68,12 @@ def get_packet(packet_id: str, db: Session = Depends(get_db), current_user=Depen
         "protocol": packet.protocol,
         "packet_size": packet.packet_size,
         "payload_hex": packet.payload_hex,
-        "captured_at": packet.captured_at.isoformat(),
+        "captured_at": packet.captured_at.isoformat() if packet.captured_at else None,
         "is_processed": packet.is_processed,
     }
 
 
-@router.get("/detections", response_model=List[dict])
+@router.get("/detections")
 def list_detections(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     results = db.query(DetectionResult).order_by(DetectionResult.checked_at.desc()).all()
     return [
@@ -79,7 +86,7 @@ def list_detections(db: Session = Depends(get_db), current_user=Depends(get_curr
             "anomaly_score": result.anomaly_score,
             "is_anomalous": result.is_anomalous,
             "inference_time_ms": result.inference_time_ms,
-            "checked_at": result.checked_at.isoformat(),
+            "checked_at": result.checked_at.isoformat() if result.checked_at else None,
         }
         for result in results
     ]

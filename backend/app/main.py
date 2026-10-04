@@ -7,6 +7,7 @@ from app.api.monitoring import router as monitoring_router
 from app.api.models import router as models_router
 from app.api.packets import router as packets_router
 from app.api.websocket import router as websocket_router
+from app.database import create_all_tables
 
 app = FastAPI(title="ML Network Monitor", version="0.1.0")
 
@@ -17,6 +18,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup_event():
+    create_all_tables()
 
 
 @app.get("/health")

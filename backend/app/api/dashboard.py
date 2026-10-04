@@ -1,8 +1,7 @@
 from datetime import datetime
-from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import case, func
+from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -20,9 +19,7 @@ def dashboard_summary(db: Session = Depends(get_db), current_user=Depends(get_cu
     total_anomalies = db.query(func.count(DetectionResult.id)).filter(DetectionResult.is_anomalous.is_(True)).scalar() or 0
     total_benign = db.query(func.count(DetectionResult.id)).filter(DetectionResult.is_anomalous.is_(False)).scalar() or 0
     active_sessions = db.query(func.count(MonitoringSession.id)).filter(MonitoringSession.status == "running").scalar() or 0
-
-    today = datetime.utcnow().date()
-    packets_today = db.query(func.count(CapturedPacket.id)).filter(func.date(CapturedPacket.captured_at) == today).scalar() or 0
+    packets_today = db.query(func.count(CapturedPacket.id)).filter(func.date(CapturedPacket.captured_at) == datetime.utcnow().date()).scalar() or 0
 
     return {
         "total_packets": total_packets,
