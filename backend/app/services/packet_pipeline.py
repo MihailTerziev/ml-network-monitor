@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -22,6 +23,9 @@ def create_packet_and_score(
     model_path: Optional[str] = None,
     threshold: Optional[float] = None,
 ) -> Dict[str, Any]:
+    scorer = AutoencoderInferenceService(model_path=model_path, threshold=threshold)
+    score = scorer.score_payload(payload_hex)
+
     packet = CapturedPacket(
         session_id=session_id,
         src_ip=src_ip,
@@ -32,14 +36,10 @@ def create_packet_and_score(
         packet_size=len(payload_hex) // 2 if payload_hex else 0,
         payload_hex=payload_hex,
         captured_at=datetime.utcnow(),
-        is_processed=False,
+        is_processed=True,
+        processed_at=datetime.utcnow(),
     )
-    db.add(packet)
-    db.commit()
-    db.refresh(packet)
-
-    scorer = AutoencoderInferenceService(model_path=model_path, threshold=threshold)
-    score = scorer.score_payload(packet.payload_hex)
+    packet.id = uuid.uuid4()
 
     result = DetectionResult(
         packet_id=packet.id,
@@ -52,9 +52,8 @@ def create_packet_and_score(
         checked_at=datetime.utcnow(),
     )
 
+    db.add(packet)
     db.add(result)
-    packet.is_processed = True
-    packet.processed_at = datetime.utcnow()
     db.commit()
     db.refresh(packet)
     db.refresh(result)
