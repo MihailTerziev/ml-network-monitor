@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.dashboard import router as dashboard_router
 from app.api.monitoring import router as monitoring_router
 from app.api.models import router as models_router
 from app.api.packets import router as packets_router
@@ -27,6 +28,7 @@ app.include_router(auth_router)
 app.include_router(monitoring_router)
 app.include_router(packets_router)
 app.include_router(models_router)
+app.include_router(dashboard_router)
 app.include_router(websocket_router)
 
 

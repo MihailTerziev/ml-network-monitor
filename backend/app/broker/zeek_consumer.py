@@ -1,39 +1,39 @@
-import socket
 import json
+import socket
 from threading import Thread
-from typing import Callable
+from typing import Any, Callable, Dict, Optional
 
 
 class ZeekSocketConsumer:
-    def __init__(self, host: str = "127.0.0.1", port: int = 9999, on_message: Callable | None = None):
+    def __init__(self, host: str = "127.0.0.1", port: int = 9999, on_message: Optional[Callable[[Dict[str, Any]], None]] = None):
         self.host = host
         self.port = port
         self.on_message = on_message
-        self.socket = None
-        self._thread = None
-        self._running = False
+        self.server_socket: Optional[socket.socket] = None
+        self.thread: Optional[Thread] = None
+        self.running = False
 
     def start(self):
-        self._running = True
-        self._thread = Thread(target=self._run, daemon=True)
-        self._thread.start()
+        self.running = True
+        self.thread = Thread(target=self._run, daemon=True)
+        self.thread.start()
 
     def stop(self):
-        self._running = False
-        if self.socket:
-            self.socket.close()
+        self.running = False
+        if self.server_socket:
+            self.server_socket.close()
 
     def _run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind((self.host, self.port))
             sock.listen(5)
-            self.socket = sock
-            while self._running:
+            self.server_socket = sock
+            while self.running:
                 try:
                     conn, _ = sock.accept()
                     with conn:
-                        while self._running:
+                        while self.running:
                             data = conn.recv(4096)
                             if not data:
                                 break
