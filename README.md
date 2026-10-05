@@ -53,9 +53,35 @@ The backend listens on TCP port `9999` only when `ZEEK_SHARED_TOKEN` is non-empt
 {"token":"<same shared token>","session_id":"<running session UUID>","payload_hex":"160301...","src_ip":"192.0.2.1","dst_ip":"192.0.2.2","src_port":51515,"dst_port":443,"protocol":"tcp"}
 ```
 
-The Zeek-side producer must run where the selected interface is visible, include the running session UUID and shared token, and send each complete JSON object followed by `\n` to the backend's port `9999`. The server validates the token/session, truncates payloads to the session's configured byte limit, runs inference, stores the packet and result in one database transaction, and emits a WebSocket event. The bridge intentionally ignores records for stopped/unknown sessions and malformed input.
+An optional Linux Docker Compose sensor is included. It captures reassembled TCP stream content on the configured host interface, samples up to 64 bytes from each Zeek delivery, and forwards it to the bridge. It is opt-in because it uses host networking and packet-capture capabilities. Only capture traffic on networks you are authorized to monitor.
 
-**Capture boundary:** creating or starting a session does not install or launch Zeek, grant packet-capture privileges, or make a Docker container see host interfaces. This repository supplies the authenticated receiver and control/data APIs, not a Zeek deployment or host sensor. Configure your existing Zeek producer separately. The dashboard also supports API-driven packet ingestion for testing:
+To run it:
+
+1. Set a strong `ZEEK_SHARED_TOKEN` (at least 32 characters) and the Linux host capture interface in the repository-root `.env` file:
+
+   ```dotenv
+   ZEEK_INTERFACE=eth0
+   ```
+
+   Replace `eth0` with the host interface that sees the traffic. The configured interface will be available in the dashboard's interface selector.
+2. Start the normal application with `docker compose up --build -d`, register/login, create a session using that interface, and start it in the dashboard.
+3. Use the authenticated `GET /api/monitoring/sessions` endpoint in `/docs` to find the running session's UUID. Add it to `.env`:
+
+   ```dotenv
+   MLNM_SESSION_ID=<running-session-uuid>
+   ```
+
+4. Start the sensor profile:
+
+   ```bash
+   docker compose --profile sensor up --build
+   ```
+
+Stop it with `Ctrl+C`, or run `docker compose --profile sensor stop zeek-sensor`. The sensor only forwards content for the configured session; stop/reconfigure it when changing sessions.
+
+The included `zeek/monitor.zeek` policy requests TCP stream contents in both directions. Its events are reassembled stream chunks, not original packet boundaries, and encrypted TLS payloads remain encrypted. The Python forwarder attaches the session UUID and token and sends each JSON object followed by `\n`. The backend validates the token/session, truncates payloads to the session's configured byte limit, runs inference, stores the packet and result in one database transaction, and emits a WebSocket event. The bridge intentionally ignores records for stopped/unknown sessions and malformed input.
+
+**Capture boundary:** creating or starting a session alone does not launch Zeek. The optional Docker sensor profile captures on a Linux host interface when explicitly started; other operating systems can use a host-installed Zeek producer. The dashboard also supports API-driven packet ingestion for testing:
 
 ```bash
 curl -X POST http://localhost:8000/api/packets/ingest \

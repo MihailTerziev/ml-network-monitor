@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.config import get_settings
 from app.models.monitoring_session import MonitoringSession
 from app.schemas.monitoring import MonitoringSessionCreate, MonitoringSessionOut, MonitoringSessionUpdate
 
@@ -17,7 +18,11 @@ router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 def list_interfaces():
     import psutil
 
-    return {"interfaces": sorted(psutil.net_if_addrs().keys())}
+    interfaces = set(psutil.net_if_addrs().keys())
+    configured_sensor_interface = get_settings().zeek_interface
+    if configured_sensor_interface:
+        interfaces.add(configured_sensor_interface)
+    return {"interfaces": sorted(interfaces)}
 
 
 @router.post("/sessions", response_model=MonitoringSessionOut)

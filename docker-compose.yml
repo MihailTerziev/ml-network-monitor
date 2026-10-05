@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
       POSTGRES_DB: ${POSTGRES_DB:-ml_network_monitor}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,6 +31,7 @@ services:
       ZEEK_HOST: 0.0.0.0
       ZEEK_PORT: 9999
       ZEEK_SHARED_TOKEN: ${ZEEK_SHARED_TOKEN:-}
+      ZEEK_INTERFACE: ${ZEEK_INTERFACE:-}
     ports:
       - "127.0.0.1:8000:8000"
       - "127.0.0.1:9999:9999"
@@ -38,6 +39,26 @@ services:
       - ./backend:/workspace/backend
       - ./frontend:/workspace/frontend
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  zeek-sensor:
+    profiles: ["sensor"]
+    build:
+      context: .
+      dockerfile: zeek/Dockerfile
+    network_mode: host
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      ZEEK_INTERFACE: ${ZEEK_INTERFACE:-}
+      MLNM_SESSION_ID: ${MLNM_SESSION_ID:-}
+      ZEEK_SHARED_TOKEN: ${ZEEK_SHARED_TOKEN:-}
+      ZEEK_BRIDGE_HOST: ${ZEEK_BRIDGE_HOST:-127.0.0.1}
+      ZEEK_BRIDGE_PORT: ${ZEEK_BRIDGE_PORT:-9999}
     restart: unless-stopped
 
 volumes:

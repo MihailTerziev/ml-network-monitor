@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     zeek_host: str = "0.0.0.0"
     zeek_port: int = Field(default=9999, ge=1, le=65535)
     zeek_shared_token: str = ""
+    zeek_interface: str = ""
     training_epochs: int = Field(default=50, ge=1, le=500)
     training_batch_size: int = Field(default=64, ge=1, le=4096)
 
